@@ -1,0 +1,4 @@
+logistic/*
+!logistic/bin/
+!logistic/bin/*
+!logistic/start
