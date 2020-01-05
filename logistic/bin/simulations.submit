@@ -1,18 +1,18 @@
 #!/bin/sh
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --array=1-10
+#SBATCH --array=1-990
 #SBATCH --mem=10gb
-#SBATCH --time=00:30:00
+#SBATCH --time=05:00:00
 #SBATCH --job-name=sas_logistic
-#SBATCH --error=./logs/slurm-output/simulate.%J.err
-#SBATCH --output=./logs/slurm-output/simulate.%J.out
+#SBATCH --error=./logs/slurm-output/simulate.%j.%a.err
+#SBATCH --output=./logs/slurm-output/simulate.%j.%a.out
 
 module load sas/9.4
 
 mkdir -p "./simulations/${SLURM_ARRAY_TASK_ID}"
-cp ../bin/logisticNLMM.sas "./simulations/${SLURM_ARRAY_TASK_ID}"
+cp ../bin/logistic.sas "./simulations/${SLURM_ARRAY_TASK_ID}"
 cd "./simulations/${SLURM_ARRAY_TASK_ID}"
-sas -nodms logisticNLMM.sas
+sas -nodms logistic.sas
 
-rm -rf logisticNLMM.sas
+rm -rf logistic.sas

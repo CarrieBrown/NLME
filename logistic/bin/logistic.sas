@@ -1,3 +1,4 @@
+
 data simulated;
 n_effects = 10;
 n_sub = 20;
@@ -12,7 +13,6 @@ var_ci = .05;
 var_di = .005;
 var_eu = .75;
 
-simulation = 1;
 do id=1 to n_effects;
   ai_x = sqrt(var_ai)*rand("Normal");
   bi_x = sqrt(var_bi)*rand("Normal");
@@ -30,6 +30,7 @@ do id=1 to n_effects;
 
 drop n_sub a b c d ai_x bi_x ci_x di_x var_ai var_bi var_ci var_di var_eu res n_effects_max;
 
+
 proc export data=simulated
     outfile='data.csv'
     dbms=csv
@@ -39,10 +40,6 @@ run;
 ods results off;
 
 proc nlmixed data=simulated;
-*options obs = max;
-*options replace;
-*options nosyntaxcheck;
-
  parms alpha=10 beta=30 gamma=-5 delta=0.5 logva=-1 to 1 logvb=0 to 3 logvc=-2 to 0 logvd=-5 to -3 logeuv=0;
  eta=alpha+ai+(beta+bi)/(1+exp(-((gamma+ci)+(delta+di)*x)));
  model y~normal(eta,exp(logeuv));
@@ -51,6 +48,7 @@ proc nlmixed data=simulated;
  predict eta out=nlm_pred;
  ods output ParameterEstimates=nlm_varest;
 run;
+
 
 proc export data=nlm_varest
 outfile="nlm_varest.csv"
@@ -64,12 +62,7 @@ DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
 
-
 proc iml;
-*options obs = max;
-*options replace;
-*options nosyntaxcheck;
-
     use simulated;
     read all;
 
@@ -87,16 +80,9 @@ proc iml;
     sigma_residual = 1;
     sigma_random = {.75,3,0.2,0.01};
 
-    loop = simulation[1];
-    
-    x_sub = x[loc(simulation=loop)];
-    y_sub = y[loc(simulation=loop)];
-    true_y_sub = true_y[loc(simulation=loop)];
-    id_sub = id[loc(simulation=loop)];
-
     * Begin Program;
-    nobs = nrow(y_sub);
-    design = design(id_sub);
+    nobs = nrow(y);
+    design = design(id);
     n_effects = ncol(design);
     n_sub = nobs/n_effects;
     crit = 1;
@@ -116,9 +102,9 @@ proc iml;
     di_x = di@j(n_sub,1,1);
 
     fa = j(nobs,1,1);
-    fb = 1 / (1 + EXP(- (c + ci_x + (d + di_x) # x_sub)));
-    fc = - (- EXP(- (c + ci_x + (d + di_x) # x_sub)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x_sub)))##2);
-    fd = - (- x_sub # EXP(- (c + ci_x + (d + di_x) # x_sub)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x_sub)))##2);
+    fb = 1 / (1 + EXP(- (c + ci_x + (d + di_x) # x)));
+    fc = - (- EXP(- (c + ci_x + (d + di_x) # x)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x)))##2);
+    fd = - (- x # EXP(- (c + ci_x + (d + di_x) # x)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x)))##2);
     xstar = fa||fb||fc||fd;
 
     fai = design;
@@ -126,9 +112,6 @@ proc iml;
     fci = design#fc;
     fdi = design#fd;
     zstar = fai||fbi||fci||fdi;
-
-    yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x_sub))));
-    ystar = y_sub - yhat + xstar*beta_fixed + zstar*beta_random;
 
     sigma_ai = i(n_effects)#sigma_random[1];
     sigma_bi = i(n_effects)#sigma_random[2];
@@ -140,9 +123,18 @@ proc iml;
 
     r_side = i(nobs)#sigma_residual;
     r_inv = inv(r_side);
+    
+    var_fun = zstar*g_side*zstar`+r_side;
+    var_inv = inv(var_fun);
 
+do while (crit>1e-12);
 
-    do while (crit>1e-7);
+    yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x))));
+    ystar = y - yhat + xstar*beta_fixed + zstar*beta_random;
+    
+    rss = ystar - xstar * inv(xstar` * var_inv * xstar) * xstar` * var_inv * ystar;
+    log_PL = -0.5 * log(det(var_fun)) + det(xstar` * var_inv * xstar) + rss` * var_inv * rss;
+
     lhs = ((xstar`*r_inv*xstar)||(xstar`*r_inv*zstar)) //
     ((zstar`*r_inv*xstar)||(zstar`*r_inv*zstar+g_inv));
     rhs = (xstar`*r_inv*ystar)//(zstar`*r_inv*ystar);
@@ -166,12 +158,12 @@ proc iml;
     ci_x = ci@j(n_sub,1,1);
     di_x = di@j(n_sub,1,1);
 
-    yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x_sub))));
+    yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x))));
 
     fa = j(nobs,1,1);
-    fb = 1 / (1 + EXP(- (c+ci_x + (d + di_x) # x_sub)));
-    fc = - (- EXP(- (c + ci_x + (d + di_x) # x_sub)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x_sub)))##2);
-    fd = - (- x_sub # EXP(- (c+ci_x + (d+di_x) # x_sub)) # (b+bi_x) / (1 + EXP(- (c+ci_x + (d+di_x) # x_sub)))##2);
+    fb = 1 / (1 + EXP(- (c+ci_x + (d + di_x) # x)));
+    fc = - (- EXP(- (c + ci_x + (d + di_x) # x)) # (b + bi_x) / (1 + EXP(- (c + ci_x + (d + di_x) # x)))##2);
+    fd = - (- x # EXP(- (c+ci_x + (d+di_x) # x)) # (b+bi_x) / (1 + EXP(- (c+ci_x + (d+di_x) # x)))##2);
     xstar = fa||fb||fc||fd;
 
     fai = design;
@@ -179,19 +171,6 @@ proc iml;
     fci = design#fc;
     fdi = design#fd;
     zstar = fai||fbi||fci||fdi;
-
-    ystar = y_sub - yhat + xstar*beta_fixed_new + zstar*beta_random_new;
-
-    sigma_ai = i(n_effects)#sigma_random[1];
-    sigma_bi = i(n_effects)#sigma_random[2];
-    sigma_ci = i(n_effects)#sigma_random[3];
-    sigma_di = i(n_effects)#sigma_random[4];
-
-    g_side = block(sigma_ai, sigma_bi, sigma_ci, sigma_di);
-    g_inv = inv(g_side);
-
-    r_side = i(nobs)#sigma_residual;
-    r_inv = inv(r_side);
 
     var_fun = zstar*g_side*zstar`+r_side;
     var_inv = inv(var_fun);
@@ -204,7 +183,6 @@ proc iml;
     dv_di = fdi*fdi`;
     dv_e = i(nobs); 
 
-    /* score */
     sca = (-0.5)#trace(p*dv_ai) + 
     (1/2)#((ystar-xstar*beta_fixed_new)`*var_inv*dv_ai*var_inv*(ystar-xstar*beta_fixed_new));
     scb = (-0.5)#trace(p*dv_bi) + 
@@ -217,7 +195,6 @@ proc iml;
     (1/2)#((ystar-xstar*beta_fixed_new)`*var_inv*dv_e*var_inv*(ystar-xstar*beta_fixed_new));
     score = sca//scb//scc//scd//sce;
 
-    /*information */
     h11=0.5#trace(p*dv_ai*p*dv_ai);
     h12=0.5#trace(p*dv_ai*p*dv_bi);
     h13=0.5#trace(p*dv_ai*p*dv_ci);
@@ -255,26 +232,45 @@ proc iml;
     sigma_random = sigma[1:4];
     sigma_residual = sigma[5];
 
-    crit = max(abs((sigma-old_sigma)/old_sigma));
+    sigma_ai = i(n_effects)#sigma_random[1];
+    sigma_bi = i(n_effects)#sigma_random[2];
+    sigma_ci = i(n_effects)#sigma_random[3];
+    sigma_di = i(n_effects)#sigma_random[4];
+
+    g_side = block(sigma_ai, sigma_bi, sigma_ci, sigma_di);
+    g_inv = inv(g_side);
+
+    r_side = i(nobs)#sigma_residual;
+    r_inv = inv(r_side);
+    
+    var_fun = zstar*g_side*zstar`+r_side;
+    var_inv = inv(var_fun);
+    
+    yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x))));
+    ystar = y - yhat + xstar*beta_fixed_new + zstar*beta_random_new;
+
+    rss = ystar - xstar * inv(xstar` * var_inv * xstar) * xstar` * var_inv * ystar;
+    new_log_PL = -0.5 * log(det(var_fun)) + det(xstar` * var_inv * xstar) + rss` * var_inv * rss;
+
+    crit = abs((new_log_PL - log_PL) / log_PL);
+    log_PL = new_log_PL;
     beta_fixed = beta_fixed_new;
     beta_random = beta_random_new;
     niter = niter+1;
 
-    *print simulation niter crit; 
-    end;
+end;
 
     n_effects = j(nobs,1, n_effects);
     StdErrPred = sqrt(sigma_residual/n_sub);
     StdErrPred = j(nobs,1,StdErrPred);
-    exp_vect = j(nobs,1,loop);
 
     lower = yhat-1.96*StdErrPred;
     upper = yhat+1.96*StdErrPred;
 
-    iml_pred = exp_vect || n_effects || id_sub || x_sub || y_sub || ystar ||
+    iml_pred = n_effects || id || x || y || ystar ||
     yhat || StdErrPred || lower || upper;
 
-    iml_pred_colnames = {"simulation", "n_effects", "id", "x", "y", "ystar", 
+    iml_pred_colnames = {"n_effects", "id", "x", "y", "ystar", 
     "Pred", "StdErrPred", "Lower", "Upper"};
 
     var_ai = sigma_random[1];
@@ -284,13 +280,10 @@ proc iml;
 
     n_effects = n_effects[1];
 
-    iml_varest_new = loop || n_effects || a || b || c || d || 
+    iml_varest = n_effects || a || b || c || d || 
     var_ai || var_bi || var_ci || var_di || sigma_residual;
 
-    if loop=1 then iml_varest = iml_varest_new;
-    else iml_varest = iml_varest // iml_varest_new;
-
-    iml_varest_colnames = {"simulation", "n_effects", "a", "b", "c", "d", 
+    iml_varest_colnames = {"n_effects", "a", "b", "c", "d", 
     "var_ai", "var_bi", "var_ci", "var_di", "var_res"};
 
     create iml_varest from iml_varest [colname=iml_varest_colnames];
@@ -303,6 +296,7 @@ proc iml;
 run;
 quit;
 
+
 proc export data=iml_varest
 outfile="iml_varest.csv"
 DBMS=DLM REPLACE;
@@ -314,3 +308,5 @@ outfile="iml_pred.csv"
 DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
+
+
