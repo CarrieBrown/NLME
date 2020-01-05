@@ -2,3 +2,8 @@ logistic/*
 !logistic/bin/
 !logistic/bin/*
 !logistic/start
+
+michaelis-menton/*
+!michaelis-menton/bin/
+!michaelis-menton/bin/*
+!michaelis-menton/start
