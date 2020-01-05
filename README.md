@@ -5,7 +5,9 @@ Carrie Brown - January 2020
 
 Analysis for each model can be found within the respective folders:
  - Logistic NLMM: `./logistic/`
+
 $$\mu_ij=\alpha + a_i + \frac{\beta + b_i}{\exp{-(\gamma + c_i + (\delta + d_i)X_{ij}}}$$
+
  - Michaelis-Menton: `./michaelis-mention/`
 
 These analyses are written to be ran on an HPC Cluster with the SLURM scheduler.
