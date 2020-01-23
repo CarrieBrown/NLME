@@ -1,9 +1,17 @@
 logistic/*
+logistic/bin/.ipynb_checkpoints/*
 !logistic/bin/
 !logistic/bin/*
 !logistic/start
 
 michaelis-menton/*
+michaelis-menton/bin/.ipynb_checkpoints/*
 !michaelis-menton/bin/
 !michaelis-menton/bin/*
 !michaelis-menton/start
+
+mitscherlich/*
+mitscherlich/bin/.ipynb_checkpoints/*
+!mitscherlich/bin/
+!mitscherlich/bin/*
+!mitscherlich/start

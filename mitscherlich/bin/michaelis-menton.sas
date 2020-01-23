@@ -22,13 +22,10 @@ do id = 1 to n_effects;
  do x = x_min to x_max by x_int;
   res = sqrt(var_eu)*rand("Normal");
   
-   y = ((vm + vi_x) * x) / (km + ki_x + x) + res;
-   true_y = (vm * x) / (km + x);
+   y = ((vm + vi) * x) / (km + ki + x) + res;
    output;
  end;
 end;
-
-drop n_effects x_min x_max x_int vm km vi ki var_vi var_ki var_eu;
 
 proc export data=simulated
     outfile='data.csv'
@@ -48,8 +45,8 @@ ods results off;
 
 proc nlmixed data=simulated;
   parms vmax=10 km=30 sdv=1 sdk=0.1 sdresid=1;
-  eta=((vmax + vi) * x)/(km + ki + x);
-  model y ~ normal(eta, sdresid*sdresid);
+  mu=((vmax + vi) * x)/(km + ki + x);
+  model y ~ normal(mu, sdresid*sdresid);
   random vi ki ~ normal([0,0],[sdv*sdv,0,sdk*sdk]) subject=id;
 
   predict eta out=nlm_pred;
@@ -206,6 +203,8 @@ proc iml;
         ystar = y - yhat + xstar*beta_fixed + zstar*beta_random;
 
         rss = ystar - xstar * inv(xstar` * var_inv * xstar) * xstar` * var_inv * ystar;
+        test = det(var_fun);
+        print test;
         new_log_PL = -0.5 * (log(det(var_fun)) + det(xstar` * var_inv * xstar) + rss` * var_inv * rss);
 
         crit = abs((new_log_PL - log_PL) / log_PL);

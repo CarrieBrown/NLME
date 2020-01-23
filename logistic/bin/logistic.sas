@@ -1,12 +1,16 @@
 
 data simulated;
 n_effects = 10;
-n_sub = 20;
+
+x_min = 1;
+x_max = 10;
+x_int = 0.5;
 
 a = 10;
 b = 30;
 c = -5;
 d = .5;
+
 var_ai = .5;
 var_bi = 2.5;
 var_ci = .05;
@@ -19,7 +23,7 @@ do id=1 to n_effects;
   ci_x = sqrt(var_ci)*rand("Normal");
   di_x = sqrt(var_di)*rand("Normal");
 
-  do x=1 to n_sub;
+  do x=x_min to x_max by x_int;
    res = sqrt(var_eu)*rand("Normal");
 
    y = a + ai_x + ((b + bi_x ) / (1 + exp(- (c + ci_x + ((d + di_x ) * x ))))) + res;
@@ -28,8 +32,14 @@ do id=1 to n_effects;
   end;
  end;
 
-drop n_sub a b c d ai_x bi_x ci_x di_x var_ai var_bi var_ci var_di var_eu res n_effects_max;
+drop n_effects n_sub a b c d ai_x bi_x ci_x di_x var_ai var_bi var_ci var_di var_eu res x_min x_max x_int;
 
+
+/* goptions reset=all;
+symbol i=join;
+proc gplot data=simulated;
+ plot y*x=id;
+run; */
 
 proc export data=simulated
     outfile='data.csv'
@@ -41,7 +51,7 @@ ods results off;
 
 proc nlmixed data=simulated;
  parms alpha=10 beta=30 gamma=-5 delta=0.5 logva=-1 to 1 logvb=0 to 3 logvc=-2 to 0 logvd=-5 to -3 logeuv=0;
- eta=alpha+ai+(beta+bi)/(1+exp(-((gamma+ci)+(delta+di)*x)));
+ eta = alpha + ai + (beta + bi)/(1 + exp(-((gamma + ci) + (delta + di) * x)));
  model y~normal(eta,exp(logeuv));
  random ai bi ci di ~ normal([0,0,0,0],[exp(logva),0, exp(logvb),0,0,exp(logvc),0,0,0,exp(logvd)]) subject=id;
 
@@ -260,17 +270,17 @@ do while (crit>1e-12);
 
 end;
 
-    n_effects = j(nobs,1, n_effects);
+    print "Converged after" niter "iternations";
     StdErrPred = sqrt(sigma_residual/n_sub);
     StdErrPred = j(nobs,1,StdErrPred);
 
     lower = yhat-1.96*StdErrPred;
     upper = yhat+1.96*StdErrPred;
 
-    iml_pred = n_effects || id || x || y || ystar ||
+    iml_pred = id || x || y || ystar ||
     yhat || StdErrPred || lower || upper;
 
-    iml_pred_colnames = {"n_effects", "id", "x", "y", "ystar", 
+    iml_pred_colnames = {"id", "x", "y", "ystar", 
     "Pred", "StdErrPred", "Lower", "Upper"};
 
     var_ai = sigma_random[1];
@@ -278,12 +288,10 @@ end;
     var_ci = sigma_random[3];
     var_di = sigma_random[4];
 
-    n_effects = n_effects[1];
-
-    iml_varest = n_effects || a || b || c || d || 
+    iml_varest = a || b || c || d || 
     var_ai || var_bi || var_ci || var_di || sigma_residual;
 
-    iml_varest_colnames = {"n_effects", "a", "b", "c", "d", 
+    iml_varest_colnames = {"a", "b", "c", "d", 
     "var_ai", "var_bi", "var_ci", "var_di", "var_res"};
 
     create iml_varest from iml_varest [colname=iml_varest_colnames];
