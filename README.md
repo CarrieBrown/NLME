@@ -1,5 +1,5 @@
 # Non-Linear Mixed Models
-## Comparision of Pseudolikelihood and Approximation Methods in SAS
+## Comparision of Pseudolikelihood and Quadrature Methods in SAS
 
 Carrie Brown - January 2020
 
