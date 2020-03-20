@@ -1,23 +1,20 @@
 
 data simulated;
 n_effects = 12;
-x_min = 1;
+x_min = 0;
 x_max = 70;
 x_int = 5;
 
-vm = 9.6;
-km = 30;
+vm = 100;
+km = 10;
 
-vi = 1;
-ki = 0.1;
-
-var_vi = 0.0001;
-var_ki = .8;
-var_eu = .1;
+var_vi = 0.1;
+var_ki = 0.5;
+var_eu = 15;
 
 do id = 1 to n_effects;
- vi_x = vi + sqrt(var_vi)*rand("Normal");
- ki_x = ki + sqrt(var_ki)*rand("Normal");
+ vi_x = sqrt(var_vi)*rand("Normal");
+ ki_x = sqrt(var_ki)*rand("Normal");
  
  do x = x_min to x_max by x_int;
   res = sqrt(var_eu)*rand("Normal");
@@ -36,24 +33,34 @@ proc export data=simulated
     replace;
 run;
 
-/* 
-goptions reset=all;
+/* goptions reset all;
 symbol i=join;
 proc gplot data=simulated;
- plot y*x=id;
-run;
- */
+ plot true_y*x=id;
+run; */
 
 ods results off;
 
 proc nlmixed data=simulated;
-  parms vmax=10 km=30 sdv=1 sdk=0.1 sdresid=1;
+  parms vmax=100 km=10 logvv=-2.5 logvk=-.5 logveu=2.5;
   eta=((vmax + vi) * x)/(km + ki + x);
-  model y ~ normal(eta, sdresid*sdresid);
-  random vi ki ~ normal([0,0],[sdv*sdv,0,sdk*sdk]) subject=id;
+  model y ~ normal(eta, exp(logveu));
+  random vi ki ~ normal([0,0],[exp(logvv),0,exp(logvk)]) subject=id;
 
-  predict eta out=nlm_pred;
-  ods output ParameterEstimates = nlm_varest;
+  estimate 'y-hat at x=1' ((vmax) / (kmax + 1));
+  estimate 'y-hat at x=5' ((vmax * 5) / (kmax + 5));
+  estimate 'y-hat at x=10' ((vmax * 10) / (kmax + 10));
+  estimate 'y-hat at x=20' ((vmax * 20) / (kmax + 20));
+  estimate 'y-hat at x=30' ((vmax * 30) / (kmax + 30));
+  estimate 'y-hat at x=60' ((vmax * 60) / (kmax + 60));
+
+  estimate 'vmax variance' exp(logvv);
+  estimate 'km variance' exp(logvk);
+  estimate 'eu variance' exp(logveu);
+
+ *predict eta out=nlm_pred;
+  ods output ParameterEstimates=nlm_varest;
+  ods output AdditionalEstimates=nlm_varest2;
 run;
 
 proc export data=nlm_varest
@@ -62,11 +69,17 @@ DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
 
-proc export data=nlm_pred
-outfile="nlm_pred.csv"
+proc export data=nlm_varest2
+outfile="nlm_varest2.csv"
 DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
+
+/* proc export data=nlm_pred
+outfile="nlm_pred.csv"
+DBMS=DLM REPLACE;
+DELIMITER=",";
+run; */
 
 proc iml;
     use simulated;
@@ -79,17 +92,17 @@ proc iml;
     vi_start = 0.1;
     ki_start = 0.1;
 
-    sigma_residual = 14.1;
-    sigma_random = {0.1, 6.7};
+    sigma_residual = 14;
+    sigma_random = {0.1, 0.5};
 
     * Begin Program *;
+    start;
     nobs = nrow(y);
     design = design(id);
     n_effects = ncol(design);
     n_sub = nobs/n_effects;
     crit = 1;
     niter = 0;
-    print nobs n_effects n_sub;
 
     vi = j(n_effects,1,vi_start);
     ki = j(n_effects,1,ki_start);
@@ -120,7 +133,7 @@ proc iml;
     var_fun = zstar*g_side*zstar`+r_side;
     var_inv = inv(var_fun);
 
-    do while (crit>1e-12);
+    do while (crit>1e-8);
         yhat = ((vm + vi_x) # x) / (km + ki_x + x);
         ystar = y - yhat + xstar*beta_fixed + zstar*beta_random;
 
@@ -185,8 +198,7 @@ proc iml;
 
         old_sigma = sigma_random // sigma_residual;
         sigma = old_sigma + inv(h)*score;
-        if sigma[1,1]<0.0001 then sigma[1,1]=0.0001;
-        if sigma[2,1]<0.0001 then sigma[2,1]=0.0001;
+        if (sigma<0) then sigma[loc(sigma < 0)] = 0;
         sigma_random = sigma[1:2];
         sigma_residual = sigma[3];
 
@@ -212,36 +224,74 @@ proc iml;
         log_PL = new_log_PL;
         beta_fixed = beta_fixed_new;
         beta_random = beta_random_new;
-        niter = niter+1;
+        niter = niter + 1;
+        if niter > 200 then goto failed;
     end;
+    goto success;
 
-    print "Converaged after" niter "iternations";
+    failed:
+    print "Failed to converge after" niter "iternations - crit: " crit;
+    goto results;
 
-    StdErrPred = sqrt(sigma_residual/n_sub);
-    StdErrPred = j(nobs,1,StdErrPred);
+    success:
+    print "Converged after" niter "iternations - crit: " crit;
 
-    lower = yhat-1.96*StdErrPred;
-    upper = yhat+1.96*StdErrPred;
+    results:
+    
+    c_11 = xstar`*r_inv*xstar;
+    c_12 = xstar`*r_inv*zstar;
+    c_21 = zstar`*r_inv*xstar;
+    c_22 = zstar`*r_inv*zstar + g_inv;
 
-    iml_pred = id || x || y || ystar || yhat || StdErrPred || lower || upper;
+    c_matrix = (c_11 || c_12) // (c_21 || c_22);
+    c_inv = inv(c_matrix);
+    
+    se_fixed = sqrt(vecdiag(c_inv[1:2,1:2]));
 
-    iml_pred_colnames = {"id", "x", "y", "ystar", "Pred", "StdErrPred", "Lower", "Upper"};
+    xi = {1,5,10,20,30,60};
+    
+    yhat_xi = ((vm) # xi) / (km + xi);
+    dfvm = xi / (km + xi);
+    dfkm = -((vm) # xi) / ((km + xi) ## 2);
+    
+    k = j(ncol(zstar),nrow(xi),0);
+    k = dfvm || dfkm || k`;
+
+    se_yhat_xi = sqrt(vecdiag(k*c_inv*k`));
+
+    print xi yhat_xi se_yhat_xi;
+    print sigma_random sigma_residual;
 
     var_vi = sigma_random[1];
     var_ki = sigma_random[2];
 
-    iml_varest = vm || km || var_vi || var_ki || sigma_residual;
-
-    iml_varest_colnames = {"vm", "km", "var_vi", "var_ki", "var_res"};
+    iml_varest = vm || km || var_vi || var_ki || sigma_residual || se_fixed`;
+    iml_varest_colnames = {"vm", "km", "var_vi", "var_ki", "var_res", "se_vm", "se_km"};
 
     create iml_varest from iml_varest [colname=iml_varest_colnames];
     append from iml_varest;
     close iml_varest;
 
+    iml_varest2 = xi || yhat_xi || se_yhat_xi;
+    iml_varest2_colnames = {"xi", "yhat_xi", "se_yhat_xi"};
+
+    create iml_varest2 from iml_varest2 [colname=iml_varest2_colnames];
+    append from iml_varest2;
+    close iml_varest2;
+    
+
+
+/*    iml_pred = id || x || y || ystar || yhat;
+
+    iml_pred_colnames = {"id", "x", "y", "ystar", "Pred"};
+
     create iml_pred from iml_pred [colname=iml_pred_colnames];
     append from iml_pred;
-    close iml_pred;
+    close iml_pred; */
+    
+finish;
 run;
+quit;
 
 proc export data=iml_varest
 outfile="iml_varest.csv"
@@ -249,10 +299,16 @@ DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
 
-proc export data=iml_pred
-outfile="iml_pred.csv"
+proc export data=nlm_varest2
+outfile="nlm_varest2.csv"
 DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
+
+/* proc export data=iml_pred
+outfile="iml_pred.csv"
+DBMS=DLM REPLACE;
+DELIMITER=",";
+run; */
 
 

@@ -15,12 +15,12 @@ echo "     ...done!"
 
 echo "Submitting simulation jobs..."
 JOB=$(sbatch --workdir ./${1}/ ./bin/simulations.submit | cut -d " " -f 4)
-#sleep 60 
+sleep 15 
 echo "Submitted batch job ${JOB}"
 echo "     ...done!"
 
 echo "Queuing cleanup job..."
-sbatch -d afterany:$JOB --workdir ./${1}/ ./bin/cleanup.submit
+sbatch -d afterany:$JOB --workdir ./${1}/ ./bin/cleanup.submit 1000
 echo "     ...done!"
 
 echo "Creating backup of executed scripts..."

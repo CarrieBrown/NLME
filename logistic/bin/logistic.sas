@@ -1,21 +1,18 @@
 
 data simulated;
 n_effects = 10;
-
-x_min = 1;
-x_max = 10;
-x_int = 0.5;
+n_sub = 20;
 
 a = 10;
 b = 30;
-c = -5;
-d = .5;
+c = -7;
+d = .75;
 
 var_ai = .5;
 var_bi = 2.5;
 var_ci = .05;
 var_di = .005;
-var_eu = .75;
+var_eu = .5;
 
 do id=1 to n_effects;
   ai_x = sqrt(var_ai)*rand("Normal");
@@ -23,7 +20,7 @@ do id=1 to n_effects;
   ci_x = sqrt(var_ci)*rand("Normal");
   di_x = sqrt(var_di)*rand("Normal");
 
-  do x=x_min to x_max by x_int;
+  do x=1 to n_sub;
    res = sqrt(var_eu)*rand("Normal");
 
    y = a + ai_x + ((b + bi_x ) / (1 + exp(- (c + ci_x + ((d + di_x ) * x ))))) + res;
@@ -32,15 +29,14 @@ do id=1 to n_effects;
   end;
  end;
 
-drop n_effects n_sub a b c d ai_x bi_x ci_x di_x var_ai var_bi var_ci var_di var_eu res x_min x_max x_int;
-
+drop n_effects n_sub a b c d ai_x bi_x ci_x di_x var_ai var_bi var_ci var_di var_eu res;
 
 /* goptions reset=all;
 symbol i=join;
 proc gplot data=simulated;
  plot y*x=id;
+ plot true_y*x;
 run; */
-
 proc export data=simulated
     outfile='data.csv'
     dbms=csv
@@ -54,11 +50,23 @@ proc nlmixed data=simulated;
  eta = alpha + ai + (beta + bi)/(1 + exp(-((gamma + ci) + (delta + di) * x)));
  model y~normal(eta,exp(logeuv));
  random ai bi ci di ~ normal([0,0,0,0],[exp(logva),0, exp(logvb),0,0,exp(logvc),0,0,0,exp(logvd)]) subject=id;
+ 
+ estimate 'y-hat at x=1' alpha + (beta/(1 + exp(-(gamma + delta))));
+ estimate 'y-hat at x=5' alpha + (beta/(1 + exp(-(gamma + 5*delta))));
+ estimate 'y-hat at x=10' alpha + (beta/(1 + exp(-(gamma + 10*delta))));
+ estimate 'y-hat at x=15' alpha + (beta/(1 + exp(-(gamma + 15*delta))));
+ estimate 'y-hat at x=20' alpha + (beta/(1 + exp(-(gamma + 20*delta))));
 
- predict eta out=nlm_pred;
+ estimate 'ai variance' exp(logva);
+ estimate 'bi variance' exp(logvb);
+ estimate 'ci variance' exp(logvc);
+ estimate 'di variance' exp(logvd);
+ estimate 'eu variance' exp(logeu);
+
+ *predict eta out=nlm_pred;
  ods output ParameterEstimates=nlm_varest;
+ ods output AdditionalEstimates=nlm_varest2;
 run;
-
 
 proc export data=nlm_varest
 outfile="nlm_varest.csv"
@@ -66,11 +74,17 @@ DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
 
-proc export data=nlm_pred
-outfile="nlm_pred.csv"
+proc export data=nlm_varest2
+outfile="nlm_varest2.csv"
 DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
+
+/*proc export data=nlm_pred
+outfile="nlm_pred.csv"zs
+DBMS=DLM REPLACE;
+DELIMITER=",";
+run;*/
 
 proc iml;
     use simulated;
@@ -91,12 +105,13 @@ proc iml;
     sigma_random = {.75,3,0.2,0.01};
 
     * Begin Program;
+    start;
     nobs = nrow(y);
     design = design(id);
     n_effects = ncol(design);
     n_sub = nobs/n_effects;
     crit = 1;
-    niter = 0;
+    niter = 1;
 
     ai = j(n_effects,1,ai_start);
     bi = j(n_effects,1,bi_start);
@@ -146,7 +161,7 @@ do while (crit>1e-12);
     log_PL = -0.5 * log(det(var_fun)) + det(xstar` * var_inv * xstar) + rss` * var_inv * rss;
 
     lhs = ((xstar`*r_inv*xstar)||(xstar`*r_inv*zstar)) //
-    ((zstar`*r_inv*xstar)||(zstar`*r_inv*zstar+g_inv));
+     ((zstar`*r_inv*xstar)||(zstar`*r_inv*zstar+g_inv));
     rhs = (xstar`*r_inv*ystar)//(zstar`*r_inv*ystar);
     solution = inv(lhs)*rhs;
     beta_fixed_new = solution[1:4];
@@ -267,40 +282,78 @@ do while (crit>1e-12);
     beta_fixed = beta_fixed_new;
     beta_random = beta_random_new;
     niter = niter+1;
-
+    if niter > 50 then goto failed;
 end;
 
-    print "Converged after" niter "iternations";
-    StdErrPred = sqrt(sigma_residual/n_sub);
-    StdErrPred = j(nobs,1,StdErrPred);
+goto success;
 
-    lower = yhat-1.96*StdErrPred;
-    upper = yhat+1.96*StdErrPred;
+failed:
+print "Failed to converge after" niter "iternations - crit: " crit;
+goto results;
 
-    iml_pred = id || x || y || ystar ||
-    yhat || StdErrPred || lower || upper;
+success:
+print "Converged after" niter "iternations - crit: " crit;
 
-    iml_pred_colnames = {"id", "x", "y", "ystar", 
-    "Pred", "StdErrPred", "Lower", "Upper"};
+results:
 
-    var_ai = sigma_random[1];
-    var_bi = sigma_random[2];
-    var_ci = sigma_random[3];
-    var_di = sigma_random[4];
+c_11 = xstar`*r_inv*xstar;
+c_12 = xstar`*r_inv*zstar;
+c_21 = zstar`*r_inv*xstar;
+c_22 = zstar`*r_inv*zstar + g_inv;
 
-    iml_varest = a || b || c || d || 
-    var_ai || var_bi || var_ci || var_di || sigma_residual;
+c_matrix = (c_11 || c_12) // (c_21 || c_22);
+c_inv = inv(c_matrix);
 
-    iml_varest_colnames = {"a", "b", "c", "d", 
-    "var_ai", "var_bi", "var_ci", "var_di", "var_res"};
+se_fixed = sqrt(vecdiag(c_inv[1:4,1:4]));
+var_random = vecdiag(c_inv[5:nrow(c_inv),5:ncol(c_inv)]);
 
-    create iml_varest from iml_varest [colname=iml_varest_colnames];
-    append from iml_varest;
-    close iml_varest;
-    
-    create iml_pred from iml_pred [colname=iml_pred_colnames];
-    append from iml_pred;
-    close iml_pred;
+xi = {1,5,10,15,20};
+
+yhat_xi = a + (b / (1 + exp(- c - (d # xi))));
+dfa = j(nrow(xi),1,1); 
+dfb = 1 / (1 + EXP(- (c + (d # xi))));
+dfc = - (- EXP(- (c + (d # xi))) * b / (1 + EXP(- (c + (d # xi))))##2);
+dfd = - (- xi # EXP(- (c + (d # xi))) * b / (1 + EXP(- (c + (d # xi))))##2);
+
+k = j(40,nrow(xi),0);
+k = dfa || dfb || dfc || dfd || k`;
+
+se_yhat_xi = sqrt(vecdiag(k*c_inv*k`));
+
+var_ai = sigma_random[1];
+var_bi = sigma_random[2];
+var_ci = sigma_random[3];
+var_di = sigma_random[4];
+
+iml_varest = a || b || c || d || 
+var_ai || var_bi || var_ci || var_di || sigma_residual || se_fixed`;
+
+iml_varest_colnames = {"a", "b", "c", "d", 
+"var_ai", "var_bi", "var_ci", "var_di", "var_res",
+"se_a", "se_b", "se_c", "se_d"};
+
+create iml_varest from iml_varest [colname=iml_varest_colnames];
+append from iml_varest;
+close iml_varest;
+
+iml_varest2 = xi || yhat_xi || se_yhat_xi;
+iml_varest2_colnames = {"xi", "yhat_xi", "se_yhat_xi"};
+
+create iml_varest2 from iml_varest2 [colname=iml_varest2_colnames];
+append from iml_varest2;
+close iml_varest2;
+
+print xi yhat_xi se_yhat_xi;
+print sigma_random sigma_residual;
+
+/*iml_pred = id || x || y || ystar || yhat;
+iml_pred_colnames = {"id", "x", "y", "ystar", "Pred"};
+
+create iml_pred from iml_pred [colname=iml_pred_colnames];
+append from iml_pred;
+close iml_pred;*/
+
+finish;
 run;
 quit;
 
@@ -311,10 +364,16 @@ DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
 
-proc export data=iml_pred
-outfile="iml_pred.csv"
+proc export data=iml_varest2
+outfile="iml_varest2.csv"
 DBMS=DLM REPLACE;
 DELIMITER=",";
 run;
+
+/*proc export data=iml_pred
+outfile="iml_pred.csv"
+DBMS=DLM REPLACE;
+DELIMITER=",";
+run; */
 
 

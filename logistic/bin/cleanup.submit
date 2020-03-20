@@ -10,7 +10,7 @@
 pwd
 cd ./simulations/
 
-for i in {1..500}; do
+for i in $(seq 1 $1); do
     NUM=$(ls ./${i}/*.csv | wc -l)
     if [ "$NUM" -eq 5 ]; then
         head -n 1 ./${i}/iml_varest.csv > ../iml_varest_total.csv
@@ -18,18 +18,18 @@ for i in {1..500}; do
 
         head -n 1 ./${i}/nlm_varest.csv > ../nlm_varest_total.csv
         cat ./*/nlm_varest.csv | grep -v "^Parameter" >> ../nlm_varest_total.csv 
+        
+        head -n 1 ./${i}/iml_varest2.csv > ../iml_varest2_total.csv
+        cat ./*/iml_varest2.csv | grep -v "^xi" >> ../iml_varest2_total.csv 
 
-        head ./${i}/iml_pred.csv > ../iml_pred_total.csv
-        cat ./*/iml_pred.csv | grep -v "Pred" >> ../iml_pred_total.csv
-
-        head ./${i}/nlm_pred.csv > ../nlm_pred_total.csv
-        cat ./*/nlm_pred.csv | grep -v "Pred" >> ../nlm_pred_total.csv
+        head -n 1 ./${i}/nlm_varest2.csv > ../nlm_varest2_total.csv
+        cat ./*/nlm_varest2.csv | grep -v "^Label" >> ../nlm_varest2_total.csv 
         
         break
     fi
 done
 
-for i in {1..500}; do
+for i in $(seq 1 $1); do
     NUM=$(ls ./${i}/*.csv | wc -l)
     if [ "$NUM" -ne 5 ]; then
 	echo "Simulation ${i} does not have 5 output files"
