@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=10gb
-#SBATCH --time=00:30:00
+#SBATCH --time=01:00:00
 #SBATCH --job-name=sas_cleanup
 #SBATCH --error=./logs/slurm-output/cleanup.%J.err
 #SBATCH --output=./logs/slurm-output/cleanup.%J.out
@@ -35,3 +35,15 @@ for i in $(seq 1 $1); do
 	echo "Simulation ${i} does not have 5 output files"
     fi
 done
+
+cd ..
+
+ml anaconda
+conda activate stats_proj
+
+mkdir meta_analysis_output
+Rscript ../bin/post-analysis.R
+
+conda deactivate
+
+zip meta_analysis_output.zip meta_analysis_output/*

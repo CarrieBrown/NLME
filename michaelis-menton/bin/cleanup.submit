@@ -7,14 +7,13 @@
 #SBATCH --error=./logs/slurm-output/cleanup.%J.err
 #SBATCH --output=./logs/slurm-output/cleanup.%J.out
 
-pwd
 cd ./simulations/
 
 for i in $(seq 1 $1); do
     NUM=$(ls ./${i}/*.csv | wc -l)
     if [ "$NUM" -eq 5 ]; then
         head -n 1 ./${i}/iml_varest.csv > ../iml_varest_total.csv
-        cat ./*/iml_varest.csv | grep -v "^a" >> ../iml_varest_total.csv 
+        cat ./*/iml_varest.csv | grep -v "^vm" >> ../iml_varest_total.csv 
 
         head -n 1 ./${i}/nlm_varest.csv > ../nlm_varest_total.csv
         cat ./*/nlm_varest.csv | grep -v "^Parameter" >> ../nlm_varest_total.csv 
@@ -35,3 +34,15 @@ for i in $(seq 1 $1); do
 	echo "Simulation ${i} does not have 5 output files"
     fi
 done
+
+cd ..
+
+ml anaconda
+conda activate stats_proj
+
+mkdir meta_analysis_output
+Rscript ../bin/post-analysis.R $(pwd)
+
+conda deactivate
+
+zip meta_analysis_output.zip meta_analysis_output/*

@@ -1,18 +1,29 @@
 #!/bin/sh
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --array=1-1000
+#SBATCH --array=1-100
 #SBATCH --mem=5GB
-#SBATCH --time=05:00:00
+#SBATCH --time=03:00:00
 #SBATCH --job-name=sas_mm
 #SBATCH --error=./logs/slurm-output/simulate.%J.err
 #SBATCH --output=./logs/slurm-output/simulate.%J.out
 
 module load sas/9.4
 
-mkdir -p "./simulations/${SLURM_ARRAY_TASK_ID}"
-cp ../bin/michaelis-menton.sas "./simulations/${SLURM_ARRAY_TASK_ID}"
-cd "./simulations/${SLURM_ARRAY_TASK_ID}"
-sas -nodms michaelis-menton.sas
+START=$((SLURM_ARRAY_TASK_ID * 10))
+STOP=$((START + 9))
 
-rm -rf michaelis-menton.sas
+for i in $(seq $START $STOP)
+do
+    mkdir -p "./simulations/${i}"
+    cp ../bin/michaelis-menton*.sas "./simulations/${i}"
+    cd "./simulations/${i}"
+    sas -nodms michaelis-menton-data.sas
+
+    sas -nodms michaelis-menton-nlm.sas &
+    sas -nodms michaelis-menton-iml.sas &
+    wait
+    
+    rm -rf michaelis-menton*.sas
+    cd ../../
+done

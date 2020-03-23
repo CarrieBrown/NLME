@@ -10,14 +10,11 @@ echo "Creating directory structure..."
 mkdir -p ./${1}/logs/slurm-output
 mkdir -p ./${1}/logs/bin
 mkdir -p ./${1}/simulations
-cp ./bin/post-analysis.ipynb ./${1}
 echo "     ...done!"
 
 echo "Submitting simulation jobs..."
 JOB=$(sbatch --workdir ./${1}/ ./bin/simulations.submit | cut -d " " -f 4)
-sleep 15 
 echo "Submitted batch job ${JOB}"
-echo "     ...done!"
 
 echo "Queuing cleanup job..."
 sbatch -d afterany:$JOB --workdir ./${1}/ ./bin/cleanup.submit 1000
@@ -27,6 +24,3 @@ echo "Creating backup of executed scripts..."
 cp ./bin/* ./start ./${1}/logs/bin/
 echo "     ...done!"
 
-## Add auto exec of meta-analysis notebook here
-
-exit 0
