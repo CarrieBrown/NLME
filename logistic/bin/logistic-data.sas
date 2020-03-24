@@ -1,6 +1,8 @@
 data simulated;
-n_effects = 10;
-n_sub = 20;
+n_effects = 30;
+x_min = 1;
+x_max = 20;
+x_int = 2;
 
 a = 10;
 b = 30;
@@ -19,7 +21,7 @@ do id=1 to n_effects;
   ci_x = sqrt(var_ci)*rand("Normal");
   di_x = sqrt(var_di)*rand("Normal");
 
-  do x=1 to n_sub;
+ do x = x_min to x_max by x_int;
    res = sqrt(var_eu)*rand("Normal");
 
    y = a + ai_x + ((b + bi_x ) / (1 + exp(- (c + ci_x + ((d + di_x ) * x ))))) + res;
@@ -36,6 +38,7 @@ proc gplot data=simulated;
  plot y*x=id;
  plot true_y*x;
 run; */
+
 proc export data=simulated
     outfile='data.csv'
     dbms=csv

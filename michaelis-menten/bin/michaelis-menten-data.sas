@@ -1,8 +1,8 @@
 data simulated;
-n_effects = 30;
+n_effects = 10;
 x_min = 0;
 x_max = 50;
-x_int = 5;
+x_int = 2;
 
 vm = 100;
 km = 10;
@@ -31,3 +31,9 @@ proc export data=simulated
     dbms=csv
     replace;
 run;
+
+/* goptions reset=all;
+symbol i=join;
+proc gplot data=simulated;
+ plot y*x=id;
+run; */

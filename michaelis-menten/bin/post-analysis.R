@@ -1,5 +1,5 @@
 # NLME Comparision Study
-# Logistic Model - Simuation Metadata Analysis
+# MM Model - Simuation Metadata Analysis
 # Carrie Brown - 3/21/20
 
 library(plyr)
@@ -170,7 +170,7 @@ names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "th
 newrow <- unlist(newrow)
 random_var_summary <- rbind(random_var_summary, newrow)
 
-temp <- as.data.frame(summary(subset %>% filter(method == "iml") %>% select(x)))
+temp <- as.data.frame(summary(subset %>% filter(method == "nlm") %>% select(x)))
 newrow <- list(c("var_eu", "nlm", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
 names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
 newrow <- unlist(newrow)
@@ -239,5 +239,4 @@ yhat_capture
 write.csv(yhat_capture, "yhat_analysis_capture.csv",quote=FALSE, row.names = FALSE)
 
 yhat_summary
-write.csv(yhat_capture, "yhat_analysis_summary.csv",quote=FALSE, row.names = FALSE)
-
+write.csv(yhat_summary, "yhat_analysis_summary.csv",quote=FALSE, row.names = FALSE)

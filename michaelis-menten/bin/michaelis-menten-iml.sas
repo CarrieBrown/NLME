@@ -56,7 +56,7 @@ proc iml;
     var_fun = zstar*g_side*zstar`+r_side;
     var_inv = inv(var_fun);
 
-    do while (crit>1e-8);
+    do while (crit>1e-12);
         yhat = ((vm + vi_x) # x) / (km + ki_x + x);
         ystar = y - yhat + xstar*beta_fixed + zstar*beta_random;
 
@@ -152,16 +152,9 @@ proc iml;
         niter = niter + 1;
         if niter > 200 then goto failed;        
     end;
-    goto success;
-
-    failed:
-    print "Failed to converge after" niter "iternations - crit: " crit;
-    goto results;
 
     success:
     print "Converged after" niter "iternations - crit: " crit;
-
-    results:
     
     c_11 = xstar`*r_inv*xstar;
     c_12 = xstar`*r_inv*zstar;
@@ -211,6 +204,13 @@ proc iml;
     create iml_pred from iml_pred [colname=iml_pred_colnames];
     append from iml_pred;
     close iml_pred; */
+    
+    goto results;
+
+    failed:
+    print "Failed to converge after" niter "iternations - crit: " crit;
+    
+    results:
     
 finish;
 run;

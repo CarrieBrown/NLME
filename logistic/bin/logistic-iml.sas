@@ -200,19 +200,11 @@ proc iml;
         beta_fixed = beta_fixed_new;
         beta_random = beta_random_new;
         niter = niter+1;
-        if niter > 50 then goto failed;
+        if niter > 200 then goto failed;
     end;
-
-    goto success;
-
-    failed:
-    print "Failed to converge after" niter "iternations - crit: " crit;
-    goto results;
 
     success:
     print "Converged after" niter "iternations - crit: " crit;
-
-    results:
 
     c_11 = xstar`*r_inv*xstar;
     c_12 = xstar`*r_inv*zstar;
@@ -270,6 +262,13 @@ proc iml;
     create iml_pred from iml_pred [colname=iml_pred_colnames];
     append from iml_pred;
     close iml_pred;*/
+    goto results;
+
+    failed:
+    print "Failed to converge after" niter "iternations - crit: " crit;
+
+    results:
+
 
 finish;
 run;

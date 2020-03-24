@@ -4,6 +4,7 @@
 
 rm(list=ls())
 
+df <- 8
 library(plyr)
 library(tidyverse)
 library(latex2exp)
@@ -53,7 +54,7 @@ nlm_converged <- nrow(parms %>% filter(method == "nlm"))
 
 converged <- c(iml_converged, nlm_converged)
 names(converged) <- c("iml_converged", "nlm_converged")
-write.table(converged, "converged.csv", quote=FALSE, row.names=FALSE)
+write.table(converged, "converged.csv", quote=FALSE)
 
 # summary and plots of fixed effects
 
@@ -62,7 +63,7 @@ parm_label <- c("alpha", "beta", "gamma", "delta")
 parm_file <- c("ahat", "bhat", "chat", "dhat")
 parm_values <- c(10, 30, -7, 0.75)
 n <- length(parm_list)
-fixed_parm_summary <- data.frame(parameter = parm_list, 
+fixed_parm_capture <- data.frame(parameter = parm_list, 
                                  iml_captured = as.numeric(rep(NA, n)),  
                                  iml_high = as.numeric(rep(NA, n)),  
                                  iml_low = as.numeric(rep(NA, n)), 
@@ -77,29 +78,50 @@ for (i in 1:n){
   names(newcol) <- "se_x"
   subset <- cbind(subset, newcol)
   subset$method <- as.factor(subset$method)
-  subset <- subset %>% mutate(upper = x + 2.447*se_x, lower = x - 2.447*se_x)
+  crit <- qt(0.975, df)
+  subset <- subset %>% mutate(upper = x + crit*se_x, lower = x - crit*se_x)
   subset$capture <- as.factor("Y")
   levels(subset$capture) <- c("Y", "H", "L")
   subset$capture[which(subset$lower > parm_values[i])] <- "H"
   subset$capture[which(subset$upper < parm_values[i])] <- "L"
   
-  fixed_parm_summary$iml_captured[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "Y"))
-  fixed_parm_summary$iml_high[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "H"))
-  fixed_parm_summary$iml_low[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "L"))
-  fixed_parm_summary$nlm_captured[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "Y"))
-  fixed_parm_summary$nlm_high[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "H"))
-  fixed_parm_summary$nlm_low[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "L"))
+  fixed_parm_capture$iml_captured[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "Y"))
+  fixed_parm_capture$iml_high[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "H"))
+  fixed_parm_capture$iml_low[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "L"))
+  fixed_parm_capture$nlm_captured[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "Y"))
+  fixed_parm_capture$nlm_high[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "H"))
+  fixed_parm_capture$nlm_low[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "L"))
   
   title <- TeX(paste0("Distribution of $\\hat{\\",parm_label[i],"_i}$"))
   xlab <- TeX(paste0("$\\hat{\\",parm_label[i],"_i$"))
   plot_parm_dist(subset, parm_list[i], title, xlab, parm_file[i], parm_values[i])
 
   plot_parm_ci(subset, parm_list[i], parm_file[i], parm_values[i])
+  
+  temp <- as.data.frame(summary(subset %>% filter(method == "iml") %>% select(x)))
+  newrow <- list(c(parm_list[i], "iml", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- unlist(newrow)
+  
+  if (i == 1)
+    fixed_parm_summary <- data.frame(t(newrow), stringsAsFactors = FALSE)
+  else
+    fixed_parm_summary <- rbind(fixed_parm_summary, newrow)
+  
+  temp <- as.data.frame(summary(subset %>% filter(method == "nlm") %>% select(x)))
+  newrow <- list(c(parm_list[i], "nlm", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- unlist(newrow)
+  
+  fixed_parm_summary <- rbind(fixed_parm_summary, newrow)
+
 }
 
 fixed_parm_summary
 write.csv(fixed_parm_summary, "parameter_analysis_summary.csv",quote=FALSE, row.names = FALSE)
 
+fixed_parm_capture
+write.csv(fixed_parm_capture, "parameter_analysis_capture.csv",quote=FALSE, row.names = FALSE)
 
 # plot distributions of variance estimates
 
@@ -122,14 +144,21 @@ for (i in 1:n){
   plot_parm_dist(subset, parm_list[i], title, xlab, parm_file[i], parm_values[i])
   
   temp <- as.data.frame(summary(subset %>% filter(method == "iml") %>% select(x)))
-  newrow <- list(c(parm_list[i], as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
-  names(newrow[[1]]) <- c("parm", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- list(c(parm_list[i], "iml", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
   newrow <- unlist(newrow)
   
   if (i == 1)
     random_var_summary <- data.frame(t(newrow), stringsAsFactors = FALSE)
   else
     random_var_summary <- rbind(random_var_summary, newrow)
+    
+  temp <- as.data.frame(summary(subset %>% filter(method == "nlm") %>% select(x)))
+  newrow <- list(c(parm_list[i], "nlm", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- unlist(newrow)
+  
+  random_var_summary <- rbind(random_var_summary, newrow)
 }
 
 # residual
@@ -143,34 +172,28 @@ xlab <- TeX(paste0("$\\widehat{Var(\\eu_i)$"))
 plot_parm_dist(subset, "var_eu", title, xlab, "var_eu", 0.5)
 
 temp <- as.data.frame(summary(subset %>% filter(method == "iml") %>% select(x)))
-newrow <- list(c("var_eu", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
-names(newrow[[1]]) <- c("parm", "min", "firstq", "median", "mean", "thirdq", "max")
+newrow <- list(c("var_eu", "iml", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+newrow <- unlist(newrow)
+random_var_summary <- rbind(random_var_summary, newrow)
+
+temp <- as.data.frame(summary(subset %>% filter(method == "nlm") %>% select(x)))
+newrow <- list(c("var_eu", "nlm", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
 newrow <- unlist(newrow)
 random_var_summary <- rbind(random_var_summary, newrow)
 
 random_var_summary
 write.csv(random_var_summary, "variance_analysis_summary.csv",quote=FALSE, row.names = FALSE)
 
-# plot distribution of yhat @ x=1
-# capture rates for yhat @ x=1
-# plot distribution of yhat @ x=5
-# capture rates for yhat @ x=5
-# plot distribution of yhat @ x=10
-# capture rates for yhat @ x=10
-# plot distribution of yhat @ x=15
-# capture rates for yhat @ x=15
-# plot distribution of yhat @ x=20
-# capture rates for yhat @ x=20
-
-
-
+# Yhat analysis
 
 parm_list <- unique(yhat$xi)
 parm_label <- as.character(unique(yhat$xi))
 parm_file <- paste0("yhat_",parm_label)
 parm_values <- 10 + (30 / (1 + exp(7 - (0.75 * parm_list))))
 n <- length(parm_list)
-yhat_summary <- data.frame(parameter = parm_list, 
+yhat_capture <- data.frame(parameter = parm_list, 
                                  iml_captured = as.numeric(rep(NA, n)),  
                                  iml_high = as.numeric(rep(NA, n)),  
                                  iml_low = as.numeric(rep(NA, n)), 
@@ -182,26 +205,47 @@ for (i in 1:n){
   subset <- yhat %>% filter(xi == parm_list[i]) %>% select(yhat_xi, se_yhat_xi, method)
   colnames(subset) <- c("x", "se_x", "method")
   subset$method <- as.factor(subset$method)
-  subset <- subset %>% mutate(upper = x + 2.447*se_x, lower = x - 2.447*se_x)
+  subset <- subset %>% mutate(upper = x + crit*se_x, lower = x - crit*se_x)
   subset$capture <- as.factor("Y")
   levels(subset$capture) <- c("Y", "H", "L")
   subset$capture[which(subset$lower > parm_values[i])] <- "H"
   subset$capture[which(subset$upper < parm_values[i])] <- "L"
   
-  yhat_summary$iml_captured[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "Y"))
-  yhat_summary$iml_high[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "H"))
-  yhat_summary$iml_low[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "L"))
-  yhat_summary$nlm_captured[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "Y"))
-  yhat_summary$nlm_high[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "H"))
-  yhat_summary$nlm_low[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "L"))
+  yhat_capture$iml_captured[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "Y"))
+  yhat_capture$iml_high[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "H"))
+  yhat_capture$iml_low[i] <- nrow(subset %>% filter(method == "iml") %>% filter(capture == "L"))
+  yhat_capture$nlm_captured[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "Y"))
+  yhat_capture$nlm_high[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "H"))
+  yhat_capture$nlm_low[i] <- nrow(subset %>% filter(method == "nlm") %>% filter(capture == "L"))
   
   title <- TeX(paste0("Distribution of $\\widehat{\\Y_{x=",parm_label[i],"}}$"))
   xlab <- TeX(paste0("$\\widehat{\\Y_{x=",parm_label[i],"}}$"))
   plot_parm_dist(subset, parm_list[i], title, xlab, parm_file[i], parm_values[i])
   
   plot_parm_ci(subset, parm_list[i], parm_file[i], parm_values[i])
+  
+  temp <- as.data.frame(summary(subset %>% filter(method == "iml") %>% select(x)))
+  newrow <- list(c(parm_list[i], "iml", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- unlist(newrow)
+  
+  if (i == 1)
+    yhat_summary <- data.frame(t(newrow), stringsAsFactors = FALSE)
+  else
+    yhat_summary <- rbind(yhat_summary, newrow)
+  
+  temp <- as.data.frame(summary(subset %>% filter(method == "nlm") %>% select(x)))
+  newrow <- list(c(parm_list[i], "nlm", as.numeric(strsplit(as.character(temp$Freq), ":") %>% map_chr(2))))
+  names(newrow[[1]]) <- c("parm", "method", "min", "firstq", "median", "mean", "thirdq", "max")
+  newrow <- unlist(newrow)
+   
+  yhat_summary <- rbind(yhat_summary, newrow)
 }
 
+yhat_summary
 write.csv(yhat_summary, "yhat_analysis_summary.csv",quote=FALSE, row.names = FALSE)
+
+yhat_capture
+write.csv(yhat_capture, "yhat_analysis_capture.csv",quote=FALSE, row.names = FALSE)
 
 
