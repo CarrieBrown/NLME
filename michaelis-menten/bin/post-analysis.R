@@ -9,7 +9,7 @@ library(latex2exp)
 getwd()
 source("../bin/nlme-library.R")
 
-df <- 28
+df <- 8
 iml_parms <- read.csv("iml_varest_total.csv")
 iml_parms$method <- "iml"
 iml_yhat <- read.csv("iml_varest2_total.csv")

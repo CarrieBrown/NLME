@@ -9,7 +9,7 @@
 
 cd ./simulations/
 
-for i in $(seq 10 1009); do
+for i in $(seq 0 999); do
     NUM=$(ls ./${i}/*.csv | wc -l)
     if [ "$NUM" -eq 5 ]; then
         head -n 1 ./${i}/iml_varest.csv > ../iml_varest_total.csv
@@ -28,7 +28,7 @@ for i in $(seq 10 1009); do
     fi
 done
 
-for i in $(seq 10 1009); do
+for i in $(seq 0 999); do
     NUM=$(ls ./${i}/*.csv | wc -l)
     if [ "$NUM" -ne 5 ]; then
 	echo "Simulation ${i} does not have 5 output files"
