@@ -69,7 +69,7 @@ proc iml;
     var_fun = zstar*g_side*zstar`+r_side;
     var_inv = inv(var_fun);
 
-    do while (crit>1e-12);
+    do while (crit>1e-8);
 
         yhat = a + ai_x + ((b + bi_x) / (1 + exp(- (c + ci_x + (d + di_x) # x))));
         ystar = y - yhat + xstar*beta_fixed + zstar*beta_random;

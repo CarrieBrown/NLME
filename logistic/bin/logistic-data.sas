@@ -1,8 +1,8 @@
 data simulated;
-n_effects = 30;
+n_effects = 10;
 x_min = 1;
 x_max = 20;
-x_int = 2;
+x_int = 1;
 
 a = 10;
 b = 30;
@@ -38,7 +38,6 @@ proc gplot data=simulated;
  plot y*x=id;
  plot true_y*x;
 run; */
-
 proc export data=simulated
     outfile='data.csv'
     dbms=csv

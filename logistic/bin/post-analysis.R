@@ -4,7 +4,7 @@
 
 rm(list=ls())
 
-df <- 8
+df <- 6
 library(plyr)
 library(tidyverse)
 library(latex2exp)
