@@ -27,4 +27,4 @@ where `<folder_name>` is replaced with the desired name for the output directory
  - Wolfringer, R.D. and O'Connell, M.A. (1993). "Generalized Linear Mixed Models: A Pseudo-likelihood Approach." *Journal of Statistical Computation and Simulation* 48:233-243
 
 
-The code for this project was generated using SAS software, Version 9.4 of the SAS System for Unix. Copyright © 2016 SAS Institute Inc. SAS and all other SAS Institute Inc. product or service names are registered trademarks or trademarks of SAS Institute Inc., Cary, NC, USA. 
+The code for this project was generated using SAS software, Version 9.4 of the SAS System for Linux. Copyright © 2016 SAS Institute Inc. SAS and all other SAS Institute Inc. product or service names are registered trademarks or trademarks of SAS Institute Inc., Cary, NC, USA. 
