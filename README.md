@@ -13,8 +13,9 @@ To begin an analysis, run the `start` executable within the desired model's dire
 
 For example, generating 1000 simulations for the Logistic NLME model can be done with the command:
 
-> cd ./logistic
-> ./start <folder_name>
+`cd ./logistic`
+
+`./start <folder_name>`
 
 where `<folder_name>` is replaced with the desired name for the output directory.
 
