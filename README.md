@@ -4,7 +4,7 @@
 Carrie Brown - January 2020
 
 Analyses for each model can be found within the respective folders:
- - Logistic NLMM: `./logistic/`
+ - Logistic: `./logistic/`
  - Michaelis-Menten: `./michaelis-menten/`
 
 These analyses are written to be ran on an HPC Cluster with the SLURM scheduler.
