@@ -12,7 +12,10 @@ These analyses are written to be ran on an HPC Cluster with the SLURM scheduler.
 To begin an analysis, run the `start` executable within the desired model's directory.
 
 For example, generating 1000 simulations for the Logistic NLME model can be done with the command:
-`./logistic/start <folder_name>`
+
+> cd ./logistic
+> ./start <folder_name>
+
 where `<folder_name>` is replaced with the desired name for the output directory.
 
 ### References:
