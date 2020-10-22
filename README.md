@@ -7,7 +7,7 @@ Analyses for each model can be found within the respective folders:
  - Logistic: `./logistic/`
  - Michaelis-Menten: `./michaelis-menten/`
 
-These analyses are written to be ran on an HPC Cluster with the SLURM scheduler.
+These analyses are written to be ran in R and SAS on an HPC Cluster with the SLURM scheduler. Post analysis requires the R packages `plyr`, `tidyverse`, and `latex2exp`.
 
 To begin an analysis, run the `start` executable within the desired model's directory.
 
@@ -17,7 +17,7 @@ For example, generating 1000 simulations for the Logistic NLME model can be done
 
 `./start <folder_name>`
 
-where `<folder_name>` is replaced with the desired name for the output directory.
+where `<folder_name>` is replaced with the desired name for the output directory
 
 ### References:
 
